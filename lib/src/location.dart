@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 // Internal.
+@pragma('vm:entry-point')
 Location locationFromList(List<double> l) => Location._fromList(l);
 
 /// A simple representation of a geographic location.

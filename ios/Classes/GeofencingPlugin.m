@@ -3,7 +3,6 @@
 // found in the LICENSE file
 
 #import "GeofencingPlugin.h"
-
 #import <CoreLocation/CoreLocation.h>
 
 @implementation GeofencingPlugin {
@@ -88,6 +87,17 @@ static BOOL backgroundIsolateRun = NO;
 }
 
 #pragma mark LocationManagerDelegate Methods
+- (void)locationManager:(CLLocationManager *)manager didDetermineState:(CLRegionState)state forRegion:(CLRegion *)region {
+    if (state == CLRegionStateInside) {
+        NSLog(@"!!! You're inside");
+//        [self sendLocationEvent:region eventType:kEnterEvent];
+    } else if (state == CLRegionStateOutside) {
+        NSLog(@"!!! You're outside");
+    } else {
+        NSLog(@"!!! Can't determine your state in region");
+    }
+}
+
 - (void)locationManager:(CLLocationManager *)manager didEnterRegion:(CLRegion *)region {
   @synchronized(self) {
     if (initialized) {
@@ -119,13 +129,14 @@ static BOOL backgroundIsolateRun = NO;
 - (void)locationManager:(CLLocationManager *)manager
     monitoringDidFailForRegion:(CLRegion *)region
                      withError:(NSError *)error {
+    NSLog(@"!!! Error in monitoring region");
 }
 
 #pragma mark GeofencingPlugin Methods
 
 - (void)sendLocationEvent:(CLRegion *)region eventType:(int)event {
   NSAssert([region isKindOfClass:[CLCircularRegion class]], @"region must be CLCircularRegion");
-  CLLocationCoordinate2D center = region.center;
+  CLLocationCoordinate2D center = [(CLCircularRegion *)region center];
   int64_t handle = [self getCallbackHandleForRegionId:region.identifier];
   if (handle != 0 && _callbackChannel != nil) {
       [_callbackChannel
@@ -141,10 +152,11 @@ static BOOL backgroundIsolateRun = NO;
   NSAssert(self, @"super init cannot be nil");
   _persistentState = [NSUserDefaults standardUserDefaults];
   _eventQueue = [[NSMutableArray alloc] init];
-  _locationManager = [[CLLocationManager alloc] init];
-  [_locationManager setDelegate:self];
-  [_locationManager requestAlwaysAuthorization];
-  _locationManager.allowsBackgroundLocationUpdates = YES;
+    _locationManager = [[CLLocationManager alloc] init];
+    [_locationManager setDelegate:self];
+    [_locationManager requestAlwaysAuthorization];
+    _locationManager.allowsBackgroundLocationUpdates = YES;
+//    [_locationManager setDesiredAccuracy:kCLLocationAccuracyBest];
 
   _headlessRunner = [[FlutterEngine alloc] initWithName:@"GeofencingIsolate" project:nil allowHeadlessExecution:YES];
   _registrar = registrar;
@@ -180,22 +192,20 @@ static BOOL backgroundIsolateRun = NO;
 }
 
 - (void)registerGeofence:(NSArray *)arguments {
-  int64_t callbackHandle = [arguments[0] longLongValue];
-  NSString *identifier = arguments[1];
-  double latitude = [arguments[2] doubleValue];
-  double longitude = [arguments[3] doubleValue];
-  double radius = [arguments[4] doubleValue];
-  int64_t triggerMask = [arguments[5] longLongValue];
-
-  CLCircularRegion *region =
+    int64_t callbackHandle = [arguments[0] longLongValue];
+    NSString *identifier = arguments[1];
+    double latitude = [arguments[2] doubleValue];
+    double longitude = [arguments[3] doubleValue];
+    double radius = [arguments[4] doubleValue];
+    int64_t triggerMask = [arguments[5] longLongValue];
+    CLCircularRegion *region =
       [[CLCircularRegion alloc] initWithCenter:CLLocationCoordinate2DMake(latitude, longitude)
                                         radius:radius
                                     identifier:identifier];
-  region.notifyOnEntry = ((triggerMask & 0x1) != 0);
-  region.notifyOnExit = ((triggerMask & 0x2) != 0);
-  
-  [self setCallbackHandleForRegionId:callbackHandle regionId:identifier];
-  [self->_locationManager startMonitoringForRegion:region];
+    region.notifyOnEntry = ((triggerMask & 0x1) != 0);
+    region.notifyOnExit = ((triggerMask & 0x2) != 0);
+    [self setCallbackHandleForRegionId:callbackHandle regionId:identifier];
+    [self->_locationManager startMonitoringForRegion:region];
 }
 
 - (BOOL)removeGeofence:(NSArray *)arguments {

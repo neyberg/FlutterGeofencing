@@ -21,6 +21,7 @@ const int _kDwellEvent = 4;
 enum GeofenceEvent { enter, exit, dwell }
 
 // Internal.
+@pragma('vm:entry-point')
 int geofenceEventToInt(GeofenceEvent e) {
   switch (e) {
     case GeofenceEvent.enter:
@@ -36,6 +37,7 @@ int geofenceEventToInt(GeofenceEvent e) {
 
 // TODO(bkonyi): handle event masks
 // Internal.
+@pragma('vm:entry-point')
 GeofenceEvent intToGeofenceEvent(int e) {
   switch (e) {
     case _kEnterEvent:
@@ -91,6 +93,7 @@ class GeofencingManager {
   static const MethodChannel _background = MethodChannel('plugins.flutter.io/geofencing_plugin_background');
 
   /// Initialize the plugin and request relevant permissions from the user.
+  @pragma('vm:entry-point')
   static Future<void> initialize() async {
     final CallbackHandle callback = PluginUtilities.getCallbackHandle(callbackDispatcher)!;
     await _channel.invokeMethod('GeofencingPlugin.initializeService', <dynamic>[callback.toRawHandle()]);
@@ -100,6 +103,7 @@ class GeofencingManager {
   ///
   /// Will throw an exception if called anywhere except for a geofencing
   /// callback.
+  @pragma('vm:entry-point')
   static Future<void> promoteToForeground() async =>
       await _background.invokeMethod('GeofencingService.promoteToForeground');
 
@@ -108,6 +112,7 @@ class GeofencingManager {
   ///
   /// Will throw an exception if called anywhere except for a geofencing
   /// callback.
+  @pragma('vm:entry-point')
   static Future<void> demoteToBackground() async =>
       await _background.invokeMethod('GeofencingService.demoteToBackground');
 
@@ -120,26 +125,34 @@ class GeofencingManager {
   /// Note: `GeofenceEvent.dwell` is not supported on iOS. If the
   /// `GeofenceRegion` provided only requests notifications for a
   /// `GeofenceEvent.dwell` trigger on iOS, `UnsupportedError` is thrown.
+  @pragma('vm:entry-point')
   static Future<void> registerGeofence(
       GeofenceRegion region, void Function(List<String> id, Location location, GeofenceEvent event) callback) async {
     if (Platform.isIOS && region.triggers.contains(GeofenceEvent.dwell) && (region.triggers.length == 1)) {
       throw UnsupportedError("iOS does not support 'GeofenceEvent.dwell'");
     }
-    final List<dynamic> args = <dynamic>[PluginUtilities.getCallbackHandle(callback)!.toRawHandle()];
+    final CallbackHandle? callbackHandle = PluginUtilities.getCallbackHandle(callback);
+    if (callbackHandle == null) {
+      return;
+    }
+    final List<dynamic> args = <dynamic>[callbackHandle!.toRawHandle()];
     args.addAll(region._toArgs());
     await _channel.invokeMethod('GeofencingPlugin.registerGeofence', args);
   }
 
   /// get all geofence identifiers
+  @pragma('vm:entry-point')
   static Future<List<String>> getRegisteredGeofenceIds() async => List<String>.from(
       await (_channel.invokeMethod('GeofencingPlugin.getRegisteredGeofenceIds') as FutureOr<Iterable<dynamic>>));
 
   /// Stop receiving geofence events for a given [GeofenceRegion].
+  @pragma('vm:entry-point')
   static Future<bool?> removeGeofence(GeofenceRegion? region) async =>
       (region == null) ? false : await removeGeofenceById(region.id);
 
   /// Stop receiving geofence events for an identifier associated with a
   /// geofence region.
+  @pragma('vm:entry-point')
   static Future<bool?> removeGeofenceById(String id) async =>
       await _channel.invokeMethod('GeofencingPlugin.removeGeofence', <dynamic>[id]);
 }
